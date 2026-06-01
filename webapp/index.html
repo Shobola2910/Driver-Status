@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Algo Group — Driver Status</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@radix-ui/themes@3.1.6/styles.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: var(--gray-2);
+      color: var(--gray-12);
+      font-family: var(--default-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+      font-size: 15px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--color-panel-solid);
+      border: 1px solid var(--gray-4);
+      border-radius: var(--radius-3);
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .card + .card, .card + .driver-card { margin-top: 8px; }
+    .driver-card { margin-bottom: 8px; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 600;
+      letter-spacing: .3px; flex-shrink: 0;
+    }
+    .badge-green  { background: var(--green-3);  color: var(--green-11);  }
+    .badge-yellow { background: var(--yellow-3); color: var(--yellow-11); }
+    .badge-red    { background: var(--red-3);    color: var(--red-11);    }
+    .badge-gray   { background: var(--gray-3);   color: var(--gray-11);   }
+
+    /* ── Button ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 0 18px; height: 40px;
+      border-radius: var(--radius-2); border: none; cursor: pointer;
+      font-size: 14px; font-weight: 500; font-family: inherit;
+      transition: opacity .15s, filter .15s;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { opacity: .85; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+    .btn-primary { background: var(--blue-9); color: white; }
+    .btn-full { width: 100%; height: 46px; font-size: 15px; border-radius: var(--radius-3); }
+
+    /* ── Input / Textarea ── */
+    .input {
+      width: 100%; padding: 9px 12px;
+      border: 1px solid var(--gray-6); border-radius: var(--radius-2);
+      background: var(--color-surface); color: var(--gray-12);
+      font-size: 15px; font-family: inherit;
+      outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    .input::placeholder { color: var(--gray-9); }
+    .input:focus { border-color: var(--blue-8); box-shadow: 0 0 0 2px var(--blue-4); }
+    textarea.input { resize: none; min-height: 100px; line-height: 1.5; }
+
+    /* ── Select ── */
+    .sel-wrap { position: relative; flex: 1; }
+    .sel {
+      width: 100%; padding: 9px 32px 9px 12px;
+      border: 1px solid var(--gray-6); border-radius: var(--radius-2);
+      background: var(--color-surface); color: var(--gray-12);
+      font-size: 14px; font-family: inherit;
+      outline: none; appearance: none; cursor: pointer;
+      transition: border-color .15s;
+    }
+    .sel:focus { border-color: var(--blue-8); }
+    .sel-arrow {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: var(--gray-9); font-size: 11px; line-height: 1;
+    }
+
+    /* ── Tabs ── */
+    .tabs-list {
+      display: flex; border-bottom: 1px solid var(--gray-4);
+      padding: 0 16px;
+    }
+    .tab-btn {
+      padding: 10px 16px; font-size: 14px; font-weight: 500;
+      color: var(--gray-10); background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color .15s, border-color .15s; font-family: inherit;
+    }
+    .tab-btn.active { color: var(--blue-11); border-bottom-color: var(--blue-9); }
+    .tab-btn:hover:not(.active) { color: var(--gray-12); }
+
+    /* ── Chips ── */
+    .chip {
+      display: inline-flex; align-items: center;
+      padding: 4px 13px; border-radius: 999px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1.5px solid;
+      transition: all .15s; white-space: nowrap; user-select: none;
+    }
+
+    /* ── Status option cards ── */
+    .status-opt {
+      border: 2px solid var(--gray-5); border-radius: var(--radius-3);
+      padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+      background: var(--color-surface); transition: border-color .15s, background .15s;
+    }
+    .status-opt:last-child { margin-bottom: 0; }
+    .status-opt:hover { border-color: var(--gray-8); }
+    .s-good   { border-color: var(--green-9)  !important; background: var(--green-2)  !important; }
+    .s-yellow { border-color: var(--yellow-9) !important; background: var(--yellow-2) !important; }
+    .s-red    { border-color: var(--red-9)    !important; background: var(--red-2)    !important; }
+    .radio-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid; flex-shrink: 0; transition: background .15s;
+    }
+
+    /* ── Misc ── */
+    .sticky-header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--color-panel-solid);
+      border-bottom: 1px solid var(--gray-4);
+    }
+    .page  { padding: 16px; padding-bottom: 48px; }
+    .label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-11); margin-bottom: 6px; }
+    .stat-sep { width: 1px; background: var(--gray-4); align-self: stretch; }
+    .spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2.5px solid var(--gray-4); border-top-color: var(--blue-9);
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    .spinner-white { border-color: rgba(255,255,255,.3); border-top-color: white; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .pop { animation: pop .3s cubic-bezier(.34,1.56,.64,1); }
+    .error-box {
+      background: var(--red-2); border: 1px solid var(--red-6);
+      border-radius: var(--radius-3); padding: 12px 16px; margin-bottom: 12px;
+      color: var(--red-11); font-size: 14px;
+    }
+    .muted { color: var(--gray-10); }
+    .ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .clamp2 {
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .row    { display: flex; align-items: center; }
+    .col    { display: flex; flex-direction: column; }
+    .g2     { gap: 8px; }
+    .g3     { gap: 12px; }
+    .sb     { justify-content: space-between; }
+    .f1     { flex: 1; }
+    .mw0    { min-width: 0; }
+    .center { text-align: center; }
+    .wrap   { flex-wrap: wrap; }
+    .mt1    { margin-top: 4px; }
+    .mt2    { margin-top: 8px; }
+    .mb2    { margin-bottom: 8px; }
+    .mb3    { margin-bottom: 12px; }
+    .mb4    { margin-bottom: 16px; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  </style>
+</head>
+
+<body>
+<div class="radix-themes" data-accent-color="blue" data-gray-color="slate" data-radius="medium" data-scaling="95%">
+
+  <!-- Header -->
+  <div class="sticky-header">
+    <div style="padding: 12px 16px 0">
+      <div class="row g2" style="margin-bottom:12px">
+        <span style="font-size:26px;line-height:1">🚛</span>
+        <div>
+          <div style="font-size:18px;font-weight:700;line-height:1.1">Algo Group</div>
+          <div class="muted" style="font-size:12px">Driver Status System</div>
+        </div>
+      </div>
+    </div>
+    <div class="tabs-list">
+      <button class="tab-btn active" id="tab-drivers" onclick="switchTab('drivers')">📋 Drivers</button>
+      <button class="tab-btn"        id="tab-add"     onclick="switchTab('add')">➕ Add Driver</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="page" id="content"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const S = {
+  tab: 'drivers',
+  drivers: [], companies: [],
+  stats: { total:0, GOOD:0, MONITOR:0, 'RED FLAG':0 },
+  company: 'all', sort: 'newest', chip: 'ALL',
+  loading: false,
+  form: { company:'', name:'', status:'GOOD', reason:'' },
+  addLoading: false, addError: '', success: false,
+};
+
+const STATUSES = [
+  { key:'GOOD',     clr:'green',  emoji:'🟢', label:'GOOD',     desc:'Yaxshi holat'     },
+  { key:'MONITOR',  clr:'yellow', emoji:'🟡', label:'MONITOR',  desc:'Kuzatish kerak'   },
+  { key:'RED FLAG', clr:'red',    emoji:'🔴', label:'RED FLAG', desc:"Darhol e'tibor!"  },
+];
+const SM = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
+
+const badgeCls = {GOOD:'badge badge-green', MONITOR:'badge badge-yellow', 'RED FLAG':'badge badge-red'};
+
+// ── API ────────────────────────────────────────────────────────────────────
+const api = (url, opts={}) =>
+  fetch(url, {headers:{'Content-Type':'application/json'}, ...opts}).then(r=>r.json());
+
+async function loadDrivers() {
+  S.loading = true; render();
+  const p = new URLSearchParams({sort: S.sort});
+  if (S.company !== 'all') p.set('company', S.company);
+  try {
+    const [dr, st, co] = await Promise.all([
+      api('/api/drivers?'+p), api('/api/stats'), api('/api/companies')
+    ]);
+    if (dr.success) S.drivers   = dr.data;
+    if (st.success) S.stats     = st.data;
+    if (co.success) S.companies = co.data;
+  } catch(e) { console.error(e); }
+  S.loading = false; render();
+}
+
+async function submitDriver() {
+  S.addError = '';
+  const {company, name, reason, status} = S.form;
+  if (!company.trim() || !name.trim() || !reason.trim()) {
+    S.addError = "Barcha maydonlarni to'ldiring"; render(); return;
+  }
+  S.addLoading = true; render();
+  try {
+    const res = await api('/api/drivers', {
+      method:'POST',
+      body: JSON.stringify({company:company.trim(), name:name.trim(), status, reason:reason.trim()})
+    });
+    if (res.success) {
+      S.success = true; S.form = {company:'',name:'',status:'GOOD',reason:''};
+      render();
+      setTimeout(() => { S.success = false; switchTab('drivers'); }, 2200);
+      return;
+    }
+    S.addError = res.error || 'Xato yuz berdi';
+  } catch { S.addError = 'Tarmoq xatosi'; }
+  S.addLoading = false; render();
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+window.switchTab = (tab) => {
+  S.tab = tab;
+  document.getElementById('tab-drivers').classList.toggle('active', tab==='drivers');
+  document.getElementById('tab-add').classList.toggle('active', tab==='add');
+  render();
+  if (tab === 'drivers') loadDrivers();
+};
+window.setCompany = v => { S.company = v; loadDrivers(); };
+window.setSort    = v => { S.sort    = v; loadDrivers(); };
+window.setChip    = v => { S.chip    = v; render(); };
+window.setStatus  = v => { S.form.status = v; render(); };
+window.setField   = (f, v) => { S.form[f] = v; };
+window.submitDriver = submitDriver;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const h = s => String(s||'')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function chipStyle(key) {
+  const c = {ALL:'--blue-9', GOOD:'--green-9', MONITOR:'--yellow-9', 'RED FLAG':'--red-9'}[key];
+  const active = S.chip === key;
+  return `background:${active?`var(${c})`:'transparent'};border-color:var(${c});color:${active?'#fff':`var(${c})`}`;
+}
+
+// ── HTML builders ──────────────────────────────────────────────────────────
+function statsBar() {
+  const {total, GOOD, MONITOR} = S.stats; const rf = S.stats['RED FLAG']||0;
+  return `<div class="card mb3">
+    <div class="row" style="align-items:stretch">
+      <div class="f1 center"><div style="font-size:22px;font-weight:700">${total}</div><div class="muted" style="font-size:12px">Jami</div></div>
+      <div class="stat-sep"></div>
+      <div class="f1 center"><div style="font-size:22px;font-weight:700;color:var(--green-11)">${GOOD||0}</div><div class="muted" style="font-size:12px">Good</div></div>
+      <div class="stat-sep"></div>
+      <div class="f1 center"><div style="font-size:22px;font-weight:700;color:var(--yellow-11)">${MONITOR||0}</div><div class="muted" style="font-size:12px">Monitor</div></div>
+      <div class="stat-sep"></div>
+      <div class="f1 center"><div style="font-size:22px;font-weight:700;color:var(--red-11)">${rf}</div><div class="muted" style="font-size:12px">Red Flag</div></div>
+    </div>
+  </div>`;
+}
+
+function driverCard(d) {
+  const st = SM[d.STATUS_KEY]||{label:d.STATUS_KEY};
+  const bc = badgeCls[d.STATUS_KEY]||'badge badge-gray';
+  return `<div class="card driver-card">
+    <div class="row sb g2">
+      <div class="f1 mw0">
+        <div style="font-size:15px;font-weight:700" class="ellipsis">${h(d['DRIVER NAME'])}</div>
+        <div class="muted mt1" style="font-size:13px">${h(d['COMPANY NAME'])}</div>
+      </div>
+      <span class="${bc}">${st.label||d.STATUS_KEY}</span>
+    </div>
+    ${d['REASON / NOTES'] ? `<div class="muted clamp2 mt2" style="font-size:13px">"${h(d['REASON / NOTES'])}"</div>` : ''}
+    <div class="muted mt1" style="font-size:12px">${h(d.DATE||'')}</div>
+  </div>`;
+}
+
+function buildDrivers() {
+  const vis = S.chip==='ALL' ? S.drivers : S.drivers.filter(d=>d.STATUS_KEY===S.chip);
+  const chipLabels = {
+    ALL:`Hammasi (${S.stats.total})`,
+    GOOD:`Good (${S.stats.GOOD||0})`,
+    MONITOR:`Monitor (${S.stats.MONITOR||0})`,
+    'RED FLAG':`Red Flag (${S.stats['RED FLAG']||0})`
+  };
+  const coOpts = S.companies.map(c=>`<option value="${h(c)}" ${S.company===c?'selected':''}>${h(c)}</option>`).join('');
+  const sortOpts = [{v:'newest',l:"Oxirgi qo'shilgan"},{v:'az',l:'A → Z'},{v:'za',l:'Z → A'}]
+    .map(o=>`<option value="${o.v}" ${S.sort===o.v?'selected':''}>${o.l}</option>`).join('');
+
+  return `
+    ${statsBar()}
+    <div class="card mb3">
+      <div class="col g2">
+        <div class="row g2"><span class="muted" style="width:64px;flex-shrink:0;font-size:13px">Company</span>
+          <div class="sel-wrap"><select class="sel" onchange="setCompany(this.value)">
+            <option value="all" ${S.company==='all'?'selected':''}>Barcha companylar</option>${coOpts}
+          </select><span class="sel-arrow">▾</span></div>
+        </div>
+        <div class="row g2"><span class="muted" style="width:64px;flex-shrink:0;font-size:13px">Tartib</span>
+          <div class="sel-wrap"><select class="sel" onchange="setSort(this.value)">${sortOpts}</select>
+          <span class="sel-arrow">▾</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="row wrap g2 mb3">
+      ${['ALL','GOOD','MONITOR','RED FLAG'].map(k=>`
+        <span class="chip" style="${chipStyle(k)}" onclick="setChip('${k}')">${chipLabels[k]}</span>
+      `).join('')}
+    </div>
+    ${S.loading
+      ? `<div style="display:flex;justify-content:center;padding:40px 0"><div class="spinner"></div></div>`
+      : vis.length===0
+        ? `<div class="card"><div class="col" style="align-items:center;padding:32px 0;gap:8px">
+            <div style="font-size:36px">🔍</div>
+            <div class="muted" style="font-size:14px">Hech qanday driver topilmadi</div>
+           </div></div>`
+        : `<div class="muted mb2" style="font-size:12px">${vis.length} ta driver</div>
+           ${vis.map(driverCard).join('')}`
+    }
+  `;
+}
+
+function buildAdd() {
+  if (S.success) return `<div class="card pop" style="text-align:center;padding:56px 24px">
+    <div style="font-size:52px">✅</div>
+    <div style="font-size:20px;font-weight:700;margin-top:12px">Driver qo'shildi!</div>
+    <div class="muted" style="font-size:14px;margin-top:6px">Google Sheets ga saqlandi</div>
+    <div style="font-size:14px;color:var(--blue-11);margin-top:8px">Ro'yxatga o'tilmoqda...</div>
+  </div>`;
+
+  const selMap = {green:'s-good', yellow:'s-yellow', red:'s-red'};
+  const statusOpts = STATUSES.map(s=>`
+    <div class="status-opt ${S.form.status===s.key ? selMap[s.clr] : ''}" onclick="setStatus('${s.key}')">
+      <div class="row sb">
+        <div class="row g2">
+          <span style="font-size:22px">${s.emoji}</span>
+          <div>
+            <div style="font-weight:700;font-size:15px">${s.label}</div>
+            <div class="muted" style="font-size:13px">${s.desc}</div>
+          </div>
+        </div>
+        <div class="radio-dot" style="border-color:var(--${s.clr}-9);background:${S.form.status===s.key?'var(--'+s.clr+'-9)':'transparent'}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    ${S.addError ? `<div class="error-box">${h(S.addError)}</div>` : ''}
+    <div class="card mb3">
+      <div class="section-title">Driver ma'lumotlari</div>
+      <div class="col g3">
+        <div>
+          <label class="label">Company nomi *</label>
+          <input class="input" type="text" placeholder="Masalan: TMT TRUCKING LLC"
+            value="${h(S.form.company)}" oninput="setField('company',this.value)" />
+        </div>
+        <div>
+          <label class="label">Driver to'liq ismi *</label>
+          <input class="input" type="text" placeholder="Ism Familiya"
+            value="${h(S.form.name)}" oninput="setField('name',this.value)" />
+        </div>
+      </div>
+    </div>
+    <div class="card mb3">
+      <div class="section-title">Status *</div>
+      ${statusOpts}
+    </div>
+    <div class="card mb3">
+      <label class="label">Sabab / Izoh *</label>
+      <textarea class="input" rows="4" placeholder="Driver haqida batafsil izoh yozing..."
+        oninput="setField('reason',this.value)">${h(S.form.reason)}</textarea>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitDriver()" ${S.addLoading?'disabled':''}>
+      ${S.addLoading
+        ? `<div class="spinner spinner-white"></div> Saqlanmoqda...`
+        : "➕ Driver qo'shish"}
+    </button>
+  `;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const el = document.getElementById('content');
+  if (el) el.innerHTML = S.tab === 'drivers' ? buildDrivers() : buildAdd();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+loadDrivers();
+</script>
+</body>
+</html>
